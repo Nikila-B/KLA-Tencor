@@ -7,7 +7,8 @@ class Function:
         time.sleep(n)
 
     def DataLoad(self,csv):
-        df = pd.read_csv(csv)
+        newcsv = "Milestone2/"+csv
+        df = pd.read_csv(newcsv)
         return [csv,len(list(df))]
 
     def Binning(self,rulefile,csv):

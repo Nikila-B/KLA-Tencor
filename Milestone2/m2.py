@@ -1,18 +1,20 @@
 import yaml
+import time
 import os
 import sys
 import datetime
-import threading
+from threading import *
+
 
 sys.path.insert(0,'C:/Users/nikil/Desktop/Nikki/Placement/KLA-Tencor')
 import Functions
 
 obj = Functions.Function()
-op_file = "M1A_log.txt"
+op_file = "M2A_log.txt"
 here = os.path.dirname(os.path.abspath(__file__))
-filename = os.path.join(here, 'Milestone1A.yaml')
-lt = []
-sublt = []
+filename = os.path.join(here,'Milestone2A.yaml')
+
+dlhashmp = {}
 
 with open(filename) as f:
     dict = yaml.full_load(f)
@@ -23,10 +25,30 @@ current_dir = workflow
 op = open(op_file, 'w')
 op.write("")
 op.close()
-activities = dict[workflow]['Activities']
 
+mutex = Semaphore(2)
 
-def task(functionname,inputs,history):
+def task(functionname,inputs,history,cond):
+
+    if cond!=None:
+        string = cond[2:].split(')')
+        checked = False
+        if string[0] in dlhashmp.keys():
+            checked = True
+            checker = cond.replace('$','dlhashmp').replace('(',"['").replace(')',"']")
+            if eval(checker)==False:
+                op = open(op_file, 'a')
+                ct = datetime.datetime.now()
+                op.write(str(ct)+";"+history+" Skipped"+"\n")
+                op.close()
+                op = open(op_file, 'a')
+                ct = datetime.datetime.now()
+                op.write(str(ct)+";"+history+" Exit"+"\n")
+                op.close()
+                return 
+            else:
+                time.sleep(5)
+
     if functionname == "TimeFunction":
         op = open(op_file, 'a')
         ct = datetime.datetime.now()
@@ -38,10 +60,26 @@ def task(functionname,inputs,history):
         op.write(str(ct)+";"+history+" Exit"+"\n")
         op.close()
 
+    if functionname == "DataLoad":
+        output = []
+        op = open(op_file, 'a')
+        ct = datetime.datetime.now()
+        op.write(str(ct)+";"+history+" Executing "+functionname+" ("+inputs['Filename']+")"+"\n")
+        op.close()
+        output = obj.DataLoad(inputs['Filename'])
+        dlhashmp[history+".NoOfDefects"] = output[1]
+        op = open(op_file, 'a')
+        ct = datetime.datetime.now()
+        op.write(str(ct)+";"+history+" Exit"+"\n")
+        op.close()
 
 def flow_to_task(dict,name,exec,history):
     if dict['Type']=='Task':
-        task(dict['Function'],dict['Inputs'],history)
+        cond=None
+        if 'Condition' in dict.keys():
+            cond = dict['Condition']
+        task(dict['Function'],dict['Inputs'],history,cond)
+
     else:
         op = open(op_file, 'a')
         ct = datetime.datetime.now()
@@ -56,7 +94,7 @@ def flow_to_task(dict,name,exec,history):
                 op.close()
 
             if dict['Execution']=='Concurrent':
-                t = threading.Thread(target=flow_to_task,args=[value,key,dict['Execution'],history+"."+key])
+                t = Thread(target=flow_to_task,args=[value,key,dict['Execution'],history+"."+key])
                 threadlist.append(t)
                 t.start()
             else:
@@ -69,16 +107,5 @@ def flow_to_task(dict,name,exec,history):
         op.write(str(ct)+";"+history+" Exit"+"\n")
         op.close()
                 
-    
-        
 flow_to_task(dict[workflow],workflow,"",workflow)
-
-
-
-
-
-        
-
-
-
-
+print(dlhashmp)
